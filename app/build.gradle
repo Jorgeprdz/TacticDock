@@ -11,8 +11,8 @@ android {
         applicationId "mx.tactic.dock"
         minSdk 30
         targetSdk 36
-        versionCode 3
-        versionName "1.4.2-dex-only"
+        versionCode 4
+        versionName "1.4.3-settings"
         signingConfig signingConfigs.debug
     }
 
