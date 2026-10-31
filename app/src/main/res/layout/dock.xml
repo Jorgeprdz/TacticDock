@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:layout_centerVertical="true"
             android:fadingEdgeLength="6dp"
-            android:requiresFadingEdge="false"
+            android:requiresFadingEdge="none"
             android:clipChildren="false"
             android:clipToPadding="false" />
 
