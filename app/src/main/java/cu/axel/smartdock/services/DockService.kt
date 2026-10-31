@@ -390,11 +390,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         //Play startup sound
         DeviceUtils.playEventSound(this, "startup_sound")
 
-        //Show the dock
-        if (sharedPreferences.getBoolean("pin_dock", true))
-            pinDock()
-        else
-            Toast.makeText(context, R.string.start_message, Toast.LENGTH_LONG).show()
+        // Persistent dock: keep out of the native Samsung DeX bottom-edge hot zone.
+        pinDock()
 
     }
 
@@ -769,7 +766,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun togglePin() {
-        if (isPinned) unpinDock() else pinDock()
+        pinDock() // R1.2 has no auto-hide
     }
 
     private fun showDock() {
@@ -797,41 +794,11 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun unpinDock() {
-        pinBtn.setImageResource(R.drawable.ic_unpin)
-        isPinned = false
-        if (dockLayout.isVisible)
-            hideDock(500)
+        pinDock() // Hide is intentionally disabled
     }
 
     private fun hideDock(delay: Int) {
-        dockHandler.removeCallbacksAndMessages(null)
-        dockHandler.postDelayed({
-            if (!isPinned) {
-                val animation = AnimationUtils.loadAnimation(context, R.anim.slide_down)
-                animation.setAnimationListener(object : Animation.AnimationListener {
-                    override fun onAnimationStart(p1: Animation) {}
-                    override fun onAnimationEnd(p1: Animation) {
-                        dockLayout.visibility = View.GONE
-                        val activationMethod =
-                            sharedPreferences.getString("activation_method", "swipe")!!
-                        if (activationMethod == "swipe") {
-                            val height =
-                                sharedPreferences.getString("dock_activation_area", "10")!!.toInt()
-                            dockLayoutParams.height = Utils.dpToPx(context, height)
-                            windowManager.updateViewLayout(dock, dockLayoutParams)
-                        } else {
-                            dock!!.visibility = View.GONE
-                            dockHandle!!.visibility = View.VISIBLE
-                        }
-                        if (sharedPreferences.getBoolean("first_hide", true))
-                            showFirstDockHideDialog(activationMethod)
-                    }
-
-                    override fun onAnimationRepeat(p1: Animation) {}
-                })
-                dockLayout.startAnimation(animation)
-            }
-        }, delay.toLong())
+        // Reserved for a future dock-only auto-hide that does not depend on the screen edge.
     }
 
     private fun getDefaultLaunchMode(app: String?): String {
@@ -1527,41 +1494,16 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun updateDockShape() {
-        dockLayout.setBackgroundResource(
-            R.drawable.round_rect
-        )
+        dockLayout.setBackgroundResource(R.drawable.tactic_dock_glass)
         updateDockBackgroundColor()
     }
 
     private fun updateNavigationBar() {
-        appsBtn.visibility =
-            if (sharedPreferences.getBoolean(
-                    "enable_nav_apps$orientationValue",
-                    true
-                )
-            ) View.VISIBLE else View.GONE
-        backBtn.visibility =
-            if (sharedPreferences.getBoolean(
-                    "enable_nav_back$orientationValue",
-                    true
-                )
-            ) View.VISIBLE else View.GONE
-        homeBtn.visibility =
-            if (sharedPreferences.getBoolean(
-                    "enable_nav_home$orientationValue",
-                    true
-                )
-            ) View.VISIBLE else View.GONE
-        recentBtn.visibility = if (sharedPreferences.getBoolean(
-                "enable_nav_recents$orientationValue",
-                true
-            )
-        ) View.VISIBLE else View.GONE
-        assistBtn.visibility = if (sharedPreferences.getBoolean(
-                "enable_nav_assist$orientationValue",
-                false
-            )
-        ) View.VISIBLE else View.GONE
+        appsBtn.visibility = View.VISIBLE
+        backBtn.visibility = View.GONE
+        homeBtn.visibility = View.GONE
+        recentBtn.visibility = View.GONE
+        assistBtn.visibility = View.GONE
     }
 
     private fun updateQuickSettings() {
@@ -2019,9 +1961,10 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun updateDockBackgroundColor() {
-        ColorUtils.applyMainColor(context, sharedPreferences, dockLayout)
-        // Semi-transparent surface; true backdrop blur is planned for a later release.
-        dockLayout.background.alpha = 228
+        // Never tint the white glass stroke or the translucent gradient with Material You.
+        dockLayout.background.alpha =
+            if (sharedPreferences.getBoolean("override_dock_background_alpha", false))
+                sharedPreferences.getInt("dock_background_alpha", 255) else 255
     }
 
     private fun applyDockAlpha() {
@@ -2111,18 +2054,11 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         volumeBtn = dock!!.findViewById(R.id.volume_btn)
         batteryBtn = dock!!.findViewById(R.id.battery_btn)
         dateTv = dock!!.findViewById(R.id.date_btn)
-        dock!!.setOnHoverListener { _, event ->
-            if (event.action == MotionEvent.ACTION_HOVER_ENTER) {
-                if (dockLayout.isGone) showDock()
-            } else if (event.action == MotionEvent.ACTION_HOVER_EXIT) if (dockLayout.isVisible) {
-                hideDock(500)
-            }
-            false
-        }
+        // Child views receive hover directly; dock surface never disappears on mouse exit.
         gestureDetector = GestureDetector(context, object : OnSwipeListener() {
             override fun onSwipe(direction: Direction): Boolean {
                 if (direction == Direction.DOWN) {
-                    if (appMenuVisible) hideAppMenu() else unpinDock()
+                    if (appMenuVisible) hideAppMenu()
                 } else if (direction == Direction.LEFT) {
                     performGlobalAction(GLOBAL_ACTION_BACK)
                 }
@@ -2187,7 +2123,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
 
         dockHeight =
-            Utils.dpToPx(context, 78) // Floating dock height for R1
+            Utils.dpToPx(context, 88) // Mac-style glass capsule
         dockLayoutParams =
             Utils.makeWindowParams(WindowManager.LayoutParams.WRAP_CONTENT, dockHeight, context, preferSecondaryDisplay)
         dockLayoutParams.screenOrientation =
@@ -2213,7 +2149,11 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         placeRunningApps()
 
         dockLayoutParams.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-        dockLayoutParams.y = Utils.dpToPx(context, 14)
+        dockLayoutParams.y = Utils.dpToPx(context, 26) // clear of DeX taskbar reveal edge
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            dockLayoutParams.flags = dockLayoutParams.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+            dockLayoutParams.setBlurBehindRadius(Utils.dpToPx(context, 24))
+        }
         windowManager.addView(dock, dockLayoutParams)
 
         //Dock handle
@@ -2350,10 +2290,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         removeAllViews()
         createViews()
         updateBatteryBtn()
-        if (sharedPreferences.getBoolean("pin_dock", true))
-            pinDock()
-        else
-            Toast.makeText(context, R.string.start_message, Toast.LENGTH_LONG).show()
+        pinDock()
     }
 
     fun showFirstDockHideDialog(activationMethod: String) {

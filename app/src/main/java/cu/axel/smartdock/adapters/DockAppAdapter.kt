@@ -36,11 +36,7 @@ class DockAppAdapter(
         iconPadding =
             Utils.dpToPx(context, sharedPreferences.getString("icon_padding", "5")!!.toInt())
         tintIndicators = sharedPreferences.getBoolean("tint_indicators", false)
-        when (sharedPreferences.getString("icon_shape", "circle")) {
-            "circle" -> iconBackground = R.drawable.circle
-            "round_rect" -> iconBackground = R.drawable.round_square
-            "default" -> iconBackground = -1
-        }
+        iconBackground = -1 // No Material tiles over native app icons
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, arg1: Int): ViewHolder {
@@ -50,6 +46,10 @@ class DockAppAdapter(
     }
 
     override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
+        viewHolder.itemView.animate().cancel()
+        viewHolder.itemView.scaleX = 1f
+        viewHolder.itemView.scaleY = 1f
+        viewHolder.itemView.translationY = 0f
         val app = apps[position]
         val size = app.tasks.size
         if (size > 0) {
@@ -106,6 +106,22 @@ class DockAppAdapter(
             itemView.setOnLongClickListener { view ->
                 listener.onDockAppLongClicked(app, view)
                 true
+            }
+            itemView.setOnHoverListener { _, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_HOVER_ENTER -> {
+                        itemView.animate().cancel()
+                        itemView.animate().scaleX(1.15f).scaleY(1.15f)
+                            .translationY(-Utils.dpToPx(itemView.context, 4).toFloat())
+                            .setDuration(150L).start()
+                    }
+                    MotionEvent.ACTION_HOVER_EXIT -> {
+                        itemView.animate().cancel()
+                        itemView.animate().scaleX(1f).scaleY(1f)
+                            .translationY(0f).setDuration(160L).start()
+                    }
+                }
+                false
             }
             itemView.setOnTouchListener { view, event ->
                 if (event.buttonState == MotionEvent.BUTTON_SECONDARY) {

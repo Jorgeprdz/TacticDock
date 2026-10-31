@@ -24,3 +24,11 @@ Retain upstream copyright and GPL-3.0 attribution and redistribution obligations
 - True live background blur, hover magnification, taskbar collision fixes,
   responsive icon size and premium animation are NOT implemented in R1.
 - Build status and APK availability are confirmed ONLY by GitHub Actions, not by this commit.
+
+## R1.2 — Floating macOS-style glass dock
+- No auto-hide or trigger at the system taskbar edge; persistent dock, y=26dp.
+- Frosted glass capsule with translucent light/dark gradient, soft border and elevation.
+- Request Android 12+ cross-window blur (system-dependent, translucency fallback).
+- 48dp native app icons, a gentle 1.15x mouse hover, indicator dots.
+- Preserves Samsung DeX taskbar; use One UI's own auto-hide setting.
+- Device-side verification is still pending.

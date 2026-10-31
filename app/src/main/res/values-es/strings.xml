@@ -1,7 +1,7 @@
 <resources>
 
     <!-- General -->
-    <string name="app_name">Smart Dock</string>
+    <string name="app_name">Tactic Dock</string>
     <string name="none">Ninguno</string>
     <string name="move">Mover</string>
     <string name="ok">OK</string>
