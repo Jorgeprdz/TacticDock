@@ -39,7 +39,8 @@ internal object DexModeGate {
         return display.takeIf { eligible }
     }
 
-    private fun dexManagerDualMode(context: Context): Boolean? = try {
+    private fun dexManagerDualMode(context: Context): Boolean? {
+        return try {
         val desktop = context.applicationContext.getSystemService("desktopmode")
             ?: return null
         val state = desktop.javaClass.getMethod("getDesktopModeState").invoke(desktop)
@@ -56,6 +57,7 @@ internal object DexModeGate {
     } catch (error: SecurityException) {
         Log.d("TacticDock", "DeX manager restricted")
         null
+    }
     }
 
     private fun isDexConfigurationEnabled(config: Configuration): Boolean = try {
