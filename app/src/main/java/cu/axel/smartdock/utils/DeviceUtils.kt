@@ -219,7 +219,11 @@ object DeviceUtils {
     }
 
     fun getSecondaryDisplay(context: Context): Display {
-        return getDisplays(context).last()
+        val current = try { context.display } catch (_: UnsupportedOperationException) { null }
+        val external = getDisplays(context).filter { it.isValid && it.displayId != Display.DEFAULT_DISPLAY }
+        return current?.takeIf { it.isValid && it.displayId != Display.DEFAULT_DISPLAY }
+            ?: external.singleOrNull()
+            ?: getDisplays(context).first { it.displayId == Display.DEFAULT_DISPLAY }
     }
 
     fun getDisplayBounds(
@@ -233,17 +237,18 @@ object DeviceUtils {
             //FIXME: This always returns the metrics of the default display
             //val metrics = DisplayMetrics()
             //display.getRealMetrics(metrics)
-            Rect(0, 0, display.width, display.height)
-        } catch (_: UnsupportedOperationException) {
+            if (display != null && display.isValid) Rect(0, 0, display.width, display.height)
+            else throw IllegalStateException("No live display $displayId")
+        } catch (_: Exception) {
             val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             windowManager.currentWindowMetrics.bounds
         }
     }
 
     fun getDisplayContext(context: Context, secondary: Boolean = false): Context {
-        return if (secondary && getDisplays(context).size > 1) context.createDisplayContext(
-            getSecondaryDisplay(context)
-        ) else context
+        if (!secondary) return context
+        val external = getDisplays(context).filter { it.isValid && it.displayId != Display.DEFAULT_DISPLAY }
+        return external.singleOrNull()?.let { context.createDisplayContext(it) } ?: context
     }
 
     @SuppressLint("PrivateApi")

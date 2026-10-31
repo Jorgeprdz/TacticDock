@@ -350,16 +350,7 @@ object AppUtils {
     fun makeActivityOptions(
         context: Context, mode: String, dockHeight: Int, displayId: Int
     ): ActivityOptions {
-        val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
-        val secondary = sharedPreferences.getBoolean("prefer_last_display", false)
-
-        val display =
-            if (displayId != Display.DEFAULT_DISPLAY)
-                displayId
-            else
-                if (secondary)
-                    DeviceUtils.getSecondaryDisplay(context).displayId
-                else 0
+        require(displayId != Display.DEFAULT_DISPLAY) { "An external display ID is required" }
         val options: ActivityOptions = ActivityOptions.makeBasic()
 
         val windowMode: Int
@@ -368,13 +359,18 @@ object AppUtils {
         else {
             windowMode = WINDOWING_MODE_FREEFORM
             options.launchBounds = makeLaunchBounds(
-                context, mode, dockHeight, display
+                context, mode, dockHeight, displayId
             )
         }
-        options.launchDisplayId = display
-        val methodName = "setLaunchWindowingMode"
-        val method = ActivityOptions::class.java.getMethod(methodName, Int::class.javaPrimitiveType)
-        method.invoke(options, windowMode)
+        options.setLaunchDisplayId(displayId)
+        try {
+            val method = ActivityOptions::class.java.getMethod(
+                "setLaunchWindowingMode", Int::class.javaPrimitiveType
+            )
+            method.invoke(options, windowMode)
+        } catch (_: ReflectiveOperationException) {
+            // Freeform is non-SDK; retain the explicit display selection.
+        }
         return options
     }
 

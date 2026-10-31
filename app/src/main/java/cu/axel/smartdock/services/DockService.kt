@@ -119,6 +119,7 @@ import cu.axel.smartdock.utils.ColorUtils
 import cu.axel.smartdock.utils.ColorUtils.getMainColors
 import cu.axel.smartdock.utils.DeepShortcutManager
 import cu.axel.smartdock.utils.DeviceUtils
+import cu.axel.smartdock.utils.DockDisplayResolver
 import cu.axel.smartdock.utils.IconPackUtils
 import cu.axel.smartdock.utils.OnSwipeListener
 import cu.axel.smartdock.utils.Utils
@@ -207,7 +208,11 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     private lateinit var handleLayoutParams: WindowManager.LayoutParams
     private lateinit var launcherApps: LauncherApps
     private lateinit var displayManager: DisplayManager
+    private lateinit var displayResolver: DockDisplayResolver
     private lateinit var displayListener: DisplayManager.DisplayListener
+    private val refreshDisplays = Runnable {
+        if (dock != null) restartUI()
+    }
     private lateinit var keyguardManager: KeyguardManager
     private var iconPackUtils: IconPackUtils? = null
     private var notificationBridge: INotificationServiceBridge? = null
@@ -221,6 +226,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this)
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
         displayManager = getSystemService(DISPLAY_SERVICE) as DisplayManager
+        displayResolver = DockDisplayResolver(displayManager)
         connectivityManager = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
         wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
         bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
@@ -333,21 +339,9 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
         displayListener = object : DisplayManager.DisplayListener {
-            override fun onDisplayAdded(displayId: Int) {
-                Log.e(packageName, "Display added $displayId")
-                if (preferSecondaryDisplay)
-                    restartUI()
-            }
-
-            override fun onDisplayRemoved(displayId: Int) {
-                Log.e(packageName, "Display removed $displayId")
-                if (preferSecondaryDisplay) {
-                    restartUI()
-                }
-            }
-
-            override fun onDisplayChanged(displayId: Int) {
-            }
+            override fun onDisplayAdded(displayId: Int) = scheduleDisplayRefresh("added", displayId)
+            override fun onDisplayRemoved(displayId: Int) = scheduleDisplayRefresh("removed", displayId)
+            override fun onDisplayChanged(displayId: Int) = scheduleDisplayRefresh("changed", displayId)
         }
 
         displayManager.registerDisplayListener(displayListener, null)
@@ -443,6 +437,71 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         return actions
     }
 
+    private fun scheduleDisplayRefresh(event: String, displayId: Int) {
+        Log.i("TacticDock", "Display $event id=$displayId: refreshing overlay display context")
+        dockHandler.removeCallbacks(refreshDisplays)
+        dockHandler.postDelayed(refreshDisplays, 250L)
+    }
+
+    private fun resolveDockDisplay(requested: Int? = null): Int? {
+        val actual = dock?.takeIf { it.isAttachedToWindow }?.display?.displayId
+        val resolved = displayResolver.resolve(dock, context, requested)
+        Log.i("TacticDock", "dockDisplay=$actual requestedDisplay=$requested resolvedDisplay=$resolved")
+        if (resolved == null) {
+            Log.w("TacticDock", "Launch blocked: external display missing or ambiguous")
+            Toast.makeText(this, "Monitor externo no disponible; no se abrió en el teléfono", Toast.LENGTH_LONG).show()
+        }
+        return resolved
+    }
+
+    private fun getTaskInfo(id: Int): ActivityManager.RunningTaskInfo? {
+        return try {
+            (activityManagerWrapper?.getRunningTasks(50)
+                ?: activityManager.getRunningTasks(50)).firstOrNull { it.id == id }
+        } catch (error: Exception) {
+            Log.w("TacticDock", "Task inspection unavailable", error)
+            null
+        }
+    }
+
+    private fun focusTaskOnDock(taskId: Int, appPackage: String) {
+        val target = resolveDockDisplay() ?: return
+        val actual = getTaskInfo(taskId)?.displayId
+        Log.i("TacticDock", "Focus task=$taskId package=$appPackage requested=$target actual=$actual")
+        if (actual != target) {
+            Log.w("TacticDock", "Cannot migrate an existing task using public APIs")
+            Toast.makeText(
+                this, "La tarea está en otra pantalla o no puede verificarse. Ciérrala allí y ábrela desde el dock.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        try {
+            activityManager.moveTaskToFront(taskId, 0)
+            Log.i("TacticDock", "Task focused=$taskId on display=$target")
+        } catch (error: Exception) {
+            Log.e("TacticDock", "Task focus failed", error)
+            Toast.makeText(this, "No fue posible recuperar la tarea en el monitor", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun verifyDestination(appPackage: String, target: Int) {
+        dockHandler.postDelayed({
+            val info = try {
+                (activityManagerWrapper?.getRunningTasks(50)
+                    ?: activityManager.getRunningTasks(50))
+                    .firstOrNull { it.topActivity?.packageName == appPackage }
+            } catch (_: Exception) { null }
+            if (info == null) {
+                Log.i("TacticDock", "Unverified destination for $appPackage: task access unavailable")
+            } else {
+                Log.i("TacticDock", "Launched $appPackage requested=$target actual=${info.displayId}")
+                if (info.displayId != target)
+                    Toast.makeText(this, "Android abrió la app en otra pantalla; revisa la tarea existente", Toast.LENGTH_LONG).show()
+            }
+        }, 950L)
+    }
+
     override fun onDockAppClicked(app: DockApp, anchor: View) {
         val tasks = app.tasks
         if (tasks.size == 1) {
@@ -450,7 +509,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             if (taskId == -1)
                 launchApp(null, app.packageName)
             else
-                activityManager.moveTaskToFront(taskId, 0)
+                focusTaskOnDock(taskId, app.packageName)
         } else if (tasks.size > 1) {
             val view = LayoutInflater.from(context).inflate(R.layout.task_list, null)
             val layoutParams = Utils.makeWindowParams(-2, -2, context, preferSecondaryDisplay)
@@ -471,8 +530,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             val tasksLv = view.findViewById<ListView>(R.id.tasks_lv)
             tasksLv.adapter = AppTaskAdapter(context, tasks)
             tasksLv.setOnItemClickListener { adapterView, _, position, _ ->
-                activityManager.moveTaskToFront(
-                    (adapterView.getItemAtPosition(position) as AppTask).id, 0
+                focusTaskOnDock(
+                    (adapterView.getItemAtPosition(position) as AppTask).id, app.packageName
                 )
                 windowManager.removeView(view)
             }
@@ -837,29 +896,54 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             )
                 db.saveLaunchMode(packageName, launchMode)
 
-        val options = AppUtils.makeActivityOptions(context, launchMode, dockHeight, displayId)
+        val explicit = displayId.takeIf { it != Display.DEFAULT_DISPLAY }
+        val resolved = resolveDockDisplay(explicit) ?: return
+        if (!displayResolver.isLiveExternal(resolved)) {
+            Log.w("TacticDock", "Display disconnected before launch: $resolved")
+            return
+        }
+        val options = AppUtils.makeActivityOptions(context, launchMode, dockHeight, resolved)
+        val existing = if (packageName != null && !newInstance) {
+            try {
+                (activityManagerWrapper?.getRunningTasks(50)
+                    ?: activityManager.getRunningTasks(50)).firstOrNull {
+                    it.topActivity?.packageName == packageName
+                }
+            } catch (_: Exception) { null }
+        } else null
+        if (existing != null && existing.displayId != resolved) {
+            Log.w("TacticDock", "Existing app on display ${existing.displayId}; blocked target=$resolved")
+            Toast.makeText(this, "Esta app ya está abierta en otra pantalla. Ciérrala allí antes de abrirla en DeX.", Toast.LENGTH_LONG).show()
+            return
+        }
 
-        //Used only for work apps
-        if (app != null && app.userHandle != Process.myUserHandle())
-            launcherApps.startMainActivity(
-                app.componentName,
-                app.userHandle,
-                null,
-                options.toBundle()
-            )
-        else {
-            val launchIntent: Intent? = if (intent == null && packageName != null)
-                packageManager.getLaunchIntentForPackage(packageName)
-            else
-                intent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-            if (launchIntent == null)
+        try {
+            if (!displayResolver.isLiveExternal(resolved)) {
+                Log.w("TacticDock", "Display disconnected during launch: $resolved")
                 return
-
-            if (newInstance)
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
-
-            context.startActivity(launchIntent, options.toBundle())
+            }
+            if (app != null && app.userHandle != Process.myUserHandle()) {
+                launcherApps.startMainActivity(
+                    app.componentName, app.userHandle, null, options.toBundle()
+                )
+            } else {
+                val launchIntent = if (intent == null && packageName != null)
+                    packageManager.getLaunchIntentForPackage(packageName)
+                else intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (launchIntent == null) {
+                    Log.w("TacticDock", "No launch intent for $packageName")
+                    return
+                }
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (newInstance) launchIntent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+                context.startActivity(launchIntent, options.toBundle())
+            }
+            Log.i("TacticDock", "Launch dispatched app=$packageName resolvedDisplay=$resolved")
+            if (packageName != null) verifyDestination(packageName, resolved)
+        } catch (error: Exception) {
+            Log.e("TacticDock", "Launch failed app=$packageName display=$resolved", error)
+            Toast.makeText(this, "No se pudo abrir la aplicación en el monitor", Toast.LENGTH_LONG).show()
+            return
         }
 
         if (appMenuVisible)
@@ -897,8 +981,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
     fun showAppMenu() {
         val layoutParams: WindowManager.LayoutParams?
-        val displayId =
-            if (preferSecondaryDisplay) DeviceUtils.getSecondaryDisplay(context).displayId else Display.DEFAULT_DISPLAY
+        val displayId = resolveDockDisplay() ?: return
         val deviceWidth = DeviceUtils.getDisplayBounds(context, displayId).width()
         val deviceHeight = DeviceUtils.getDisplayBounds(context, displayId).height()
         val margins = Utils.dpToPx(context, 2)
@@ -1308,7 +1391,16 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             } else if (adapterView.getItemAtPosition(position) is ShortcutInfo) {
                 val shortcut = adapterView.getItemAtPosition(position) as ShortcutInfo
                 windowManager.removeView(view)
-                DeepShortcutManager.startShortcut(shortcut, context)
+                val target = resolveDockDisplay()
+                if (target != null && displayResolver.isLiveExternal(target)) {
+                    try {
+                        val options = AppUtils.makeActivityOptions(context, "standard", dockHeight, target)
+                        if (DeepShortcutManager.startShortcut(shortcut, context, options.toBundle()))
+                            verifyDestination(shortcut.getPackage(), target)
+                    } catch (error: Exception) {
+                        Log.e("TacticDock", "Shortcut launch failed", error)
+                    }
+                }
             } else if (adapterView.getItemAtPosition(position) is Display) {
                 val display = adapterView.getItemAtPosition(position) as Display
                 windowManager.removeView(view)
@@ -1984,6 +2076,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             unregisterReceiver(batteryReceiver)
         if (::soundEventsReceiver.isInitialized)
             unregisterReceiver(soundEventsReceiver)
+        dockHandler.removeCallbacks(refreshDisplays)
         if (::displayListener.isInitialized && ::displayManager.isInitialized)
             displayManager.unregisterDisplayListener(displayListener)
         connectivityManager.unregisterNetworkCallback(wifiNetworkCallback)

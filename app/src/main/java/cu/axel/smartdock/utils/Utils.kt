@@ -127,7 +127,10 @@ object Utils {
         accessibilityWindow: Boolean = false
     ): WindowManager.LayoutParams {
         val displayId =
-            if (secondary) DeviceUtils.getSecondaryDisplay(context).displayId else Display.DEFAULT_DISPLAY
+            if (secondary) {
+                try { context.display?.displayId ?: Display.DEFAULT_DISPLAY }
+                catch (_: UnsupportedOperationException) { Display.DEFAULT_DISPLAY }
+            } else Display.DEFAULT_DISPLAY
         val displayWidth = DeviceUtils.getDisplayBounds(context, displayId).width()
         val displayHeight = DeviceUtils.getDisplayBounds(context, displayId).height()
         val layoutParams = WindowManager.LayoutParams()

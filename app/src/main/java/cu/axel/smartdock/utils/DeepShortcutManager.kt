@@ -5,18 +5,23 @@ import android.content.pm.LauncherApps
 import android.content.pm.ShortcutInfo
 import android.graphics.drawable.Drawable
 import android.os.Process
+import android.os.Bundle
+import android.util.Log
 
 /**
  * Performs operations related to deep shortcuts, such as querying for them, pinning them, etc.
  */
 object DeepShortcutManager {
-    //TODO: Add free form support
-    fun startShortcut(shortcutInfo: ShortcutInfo, context: Context) {
+    fun startShortcut(shortcutInfo: ShortcutInfo, context: Context, options: Bundle): Boolean {
         val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
-        try {
-            launcherApps.startShortcut(shortcutInfo.getPackage(), shortcutInfo.id, null, null,
-                    Process.myUserHandle())
-        } catch (_: Exception) {
+        return try {
+            launcherApps.startShortcut(
+                shortcutInfo.getPackage(), shortcutInfo.id, null, options, shortcutInfo.userHandle
+            )
+            true
+        } catch (error: Exception) {
+            Log.e("TacticDock", "Shortcut launch failed: ${shortcutInfo.id}", error)
+            false
         }
     }
 
