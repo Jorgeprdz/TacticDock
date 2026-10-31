@@ -5,8 +5,8 @@ REPO="Jorgeprdz/TacticDock"
 BRANCH="feat/tactic-dock-r1-floating"
 PKG="mx.tactic.dock"
 SERVICE="$PKG/cu.axel.smartdock.services.DockService"
-APK="TacticDock-R1.4.1.1.apk"
-ARTIFACT="TacticDock-R1.4.1.1-APK"
+APK="TacticDock-R1.4.1.apk"
+ARTIFACT="TacticDock-R1.4.1-APK"
 log() { printf '[TacticDock R1.4.1] %s\n' "$*"; }
 fail() { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
 for c in gh adb sha256sum mktemp; do
