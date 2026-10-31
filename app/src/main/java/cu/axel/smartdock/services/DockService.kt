@@ -120,6 +120,7 @@ import cu.axel.smartdock.utils.ColorUtils.getMainColors
 import cu.axel.smartdock.utils.DeepShortcutManager
 import cu.axel.smartdock.utils.DeviceUtils
 import cu.axel.smartdock.utils.DockDisplayResolver
+import cu.axel.smartdock.utils.NotificationDisplayPolicy
 import cu.axel.smartdock.utils.IconPackUtils
 import cu.axel.smartdock.utils.OnSwipeListener
 import cu.axel.smartdock.utils.Utils
