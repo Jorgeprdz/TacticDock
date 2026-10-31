@@ -42,6 +42,7 @@ class NotificationLayout(
     private lateinit var notificationActionsLayout: LinearLayout
     lateinit var notificationLayoutParams: WindowManager.LayoutParams
     private var handler = Handler(Looper.getMainLooper())
+    private var active = true
     var actionsHeight = 0
     private var dockHeight: Int = 0
     private val packageManager = context.packageManager
@@ -54,7 +55,20 @@ class NotificationLayout(
         fun onNotificationCancel(key: String)
     }
 
+    fun dismiss() {
+        handler.removeCallbacksAndMessages(null)
+        notificationLayout.animate().cancel()
+        notificationLayout.visibility = View.GONE
+        notificationLayout.alpha = 0f
+    }
+
+    fun dispose() {
+        active = false
+        dismiss()
+    }
+
     fun updateNotificationLayout(sbn: StatusBarNotification) {
+        if (!active) return
         if (sharedPreferences.getBoolean("show_notifications", true)) {
             val notification = sbn.notification
             if ((sbn.isOngoing && !sharedPreferences.getBoolean(
@@ -210,17 +224,14 @@ class NotificationLayout(
             Utils.dpToPx(context, sharedPreferences.getString("dock_height", "56")!!.toInt())
         notificationLayoutParams = Utils.makeWindowParams(
             Utils.dpToPx(context, 300), LinearLayout.LayoutParams.WRAP_CONTENT, context,
-            sharedPreferences.getBoolean("prefer_last_display", false)
+            true // window manager is already tied to the verified external display
         )
         actionsHeight = Utils.dpToPx(context, 20)
         val margins = Utils.dpToPx(context, 2)
-        notificationLayoutParams.x = margins
-        notificationLayoutParams.y = margins + dockHeight
-        notificationLayoutParams.gravity = Gravity.BOTTOM or if (sharedPreferences.getInt(
-                "dock_layout",
-                -1
-            ) == 0
-        ) Gravity.CENTER_HORIZONTAL else Gravity.END
+        notificationLayoutParams.x = Utils.dpToPx(context, 18)
+        notificationLayoutParams.y = Utils.dpToPx(context, 18)
+        // macOS-like top-right external desktop popup. Never a bottom-edge phone toast.
+        notificationLayoutParams.gravity = Gravity.TOP or Gravity.END
         notificationLayout = LayoutInflater.from(context).inflate(
             R.layout.notification_entry,
             null
@@ -250,6 +261,7 @@ class NotificationLayout(
     private fun hideNotification() {
         handler.removeCallbacksAndMessages(null)
         handler.postDelayed({
+            if (!active) return@postDelayed
             notificationLayout.animate().alpha(0f).setDuration(300)
                 .setInterpolator(AccelerateDecelerateInterpolator())
                 .setListener(object : AnimatorListenerAdapter() {

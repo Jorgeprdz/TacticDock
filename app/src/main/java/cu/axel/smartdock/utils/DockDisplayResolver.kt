@@ -6,6 +6,14 @@ import android.util.Log
 import android.view.Display
 import android.view.View
 
+internal object NotificationDisplayPolicy {
+    /** Popups require the real attached dock and its WindowManager context to agree. */
+    fun isValidTarget(externalIds: Set<Int>, dockDisplayId: Int?, contextDisplayId: Int?): Boolean =
+        dockDisplayId != null &&
+            dockDisplayId in externalIds &&
+            contextDisplayId == dockDisplayId
+}
+
 internal object DisplayTargetPolicy {
     fun choose(
         externalIds: Set<Int>, renderedId: Int?, contextId: Int?, requestedId: Int?

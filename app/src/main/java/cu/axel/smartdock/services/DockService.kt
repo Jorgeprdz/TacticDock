@@ -2118,7 +2118,32 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         createDock()
         createHotCorners()
         createAppMenu()
-        notificationLayout = NotificationLayout(
+        // Wait for the dock view to actually attach. A service base Context
+        // (or stale display preference) must never place a popup on the phone.
+        dock?.post { ensureExternalNotificationOverlay() }
+        applyTheme()
+    }
+
+    private fun dockNotificationDisplayId(): Int? {
+        val rendered = dock?.takeIf { it.isAttachedToWindow }?.display?.displayId
+        val contextual = try { context.display?.displayId }
+            catch (_: UnsupportedOperationException) { null }
+        val available = displayManager.displays.filter {
+            it.isValid && it.displayId != Display.DEFAULT_DISPLAY
+        }.map { it.displayId }.toSet()
+        return if (NotificationDisplayPolicy.isValidTarget(available, rendered, contextual)) {
+            rendered
+        } else null
+    }
+
+    private fun ensureExternalNotificationOverlay() {
+        if (notificationLayout != null) return
+        val target = dockNotificationDisplayId()
+        if (target == null) {
+            Log.i("TacticDock", "Notification overlay suppressed: dock is not attached to an external display")
+            return
+        }
+        val popup = NotificationLayout(
             context,
             sharedPreferences,
             object : NotificationLayout.NotificationCancelListener {
@@ -2126,11 +2151,41 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                     notificationBridge?.mCancelNotification(key)
                 }
             })
-        windowManager.addView(
-            notificationLayout!!.notificationLayout,
-            notificationLayout!!.notificationLayoutParams
-        )
-        applyTheme()
+        try {
+            // windowManager belongs to the SAME external display context as the dock.
+            windowManager.addView(popup.notificationLayout, popup.notificationLayoutParams)
+            notificationLayout = popup
+            popup.notificationLayout.post {
+                if (notificationLayout !== popup) return@post
+                val actual = popup.notificationLayout
+                    .takeIf { it.isAttachedToWindow }?.display?.displayId
+                if (actual != dockNotificationDisplayId()) {
+                    Log.w("TacticDock", "Popup display mismatch: expected=$target actual=$actual; removing")
+                    popup.dispose()
+                    try { windowManager.removeViewImmediate(popup.notificationLayout) }
+                    catch (error: Exception) { Log.w("TacticDock", "Popup removal failed", error) }
+                    notificationLayout = null
+                } else {
+                    Log.i("TacticDock", "External-only notification overlay attached display=$actual")
+                }
+            }
+        } catch (error: Exception) {
+            popup.dispose()
+            Log.e("TacticDock", "Cannot attach notification overlay to external display=$target", error)
+        }
+    }
+
+    private fun presentExternalNotification(sbn: StatusBarNotification) {
+        val popup = notificationLayout ?: return  // Android's phone heads-up remains native.
+        val target = dockNotificationDisplayId()
+        val actual = popup.notificationLayout
+            .takeIf { it.isAttachedToWindow }?.display?.displayId
+        if (target == null || actual != target) {
+            Log.w("TacticDock", "Discarding notification popup: dock=$target overlay=$actual")
+            popup.dismiss()
+            return
+        }
+        popup.updateNotificationLayout(sbn)
     }
 
     private fun createDock() {
@@ -2456,14 +2511,19 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun removeAllViews() {
-        try {
-            dock?.let { windowManager.removeViewImmediate(it) }
-            dockHandle?.let { windowManager.removeViewImmediate(it) }
-            appMenu?.let { windowManager.removeViewImmediate(it) }
-            topRightCorner?.let { windowManager.removeViewImmediate(it) }
-            bottomRightCorner?.let { windowManager.removeViewImmediate(it) }
-            notificationLayout?.let { windowManager.removeViewImmediate(it.notificationLayout) }
-        } catch (_: Exception) {
+        // Cancel pending popup timers/animations before removing a disconnected
+        // display's windows. One stale view must not prevent removing the others.
+        notificationLayout?.dispose()
+        val windows = listOfNotNull<View>(
+            notificationLayout?.notificationLayout, dock, dockHandle, appMenu,
+            topRightCorner, bottomRightCorner, notificationLayout?.notificationLayout
+        ).distinct()
+        windows.forEach { view ->
+            try {
+                if (view.isAttachedToWindow) windowManager.removeViewImmediate(view)
+            } catch (error: Exception) {
+                Log.w("TacticDock", "Window teardown after display change failed", error)
+            }
         }
 
         dock = null
@@ -2472,6 +2532,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         topRightCorner = null
         bottomRightCorner = null
         notificationLayout = null
+        // Notifications are display-scoped and never reparented to the phone.
     }
 
     inner class HotCornersHoverListener(val key: String) : View.OnHoverListener {
@@ -2510,22 +2571,19 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             notificationBridge = INotificationServiceBridge.Stub.asInterface(p1)
             notificationBridge?.registerCallback(object : INotificationCallback.Stub() {
                 override fun onNotificationPosted(sbn: StatusBarNotification?) {
-                    if (quickSettingsPanelVisible)
-                        updateNotificationArea()
-                    updateNotificationCount()
-                    notificationLayout?.let {
-                        it.updateNotificationLayout(sbn!!)
-                        windowManager.updateViewLayout(
-                            it.notificationLayout,
-                            it.notificationLayoutParams
-                        )
+                    // Notification callbacks can arrive on Binder threads.
+                    dockHandler.post {
+                        if (quickSettingsPanelVisible) updateNotificationArea()
+                        updateNotificationCount()
+                        if (sbn != null) presentExternalNotification(sbn)
                     }
                 }
 
                 override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-                    if (quickSettingsPanelVisible)
-                        updateNotificationArea()
-                    updateNotificationCount()
+                    dockHandler.post {
+                        if (quickSettingsPanelVisible) updateNotificationArea()
+                        updateNotificationCount()
+                    }
                 }
 
             })

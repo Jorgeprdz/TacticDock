@@ -24,3 +24,26 @@ class DisplayTargetPolicyTest {
         assertNull(DisplayTargetPolicy.choose(emptySet(), 0, 0, null))
     }
 }
+
+class NotificationDisplayPolicyTest {
+    @Test fun popupRequiresDockOnActiveExternalDisplay() {
+        org.junit.Assert.assertTrue(NotificationDisplayPolicy.isValidTarget(setOf(25), 25, 25))
+    }
+    @Test fun phoneMustNeverGetCustomNotificationPopup() {
+        org.junit.Assert.assertFalse(NotificationDisplayPolicy.isValidTarget(setOf(25), 0, 0))
+    }
+    @Test fun disconnectedDisplayCannotShowPopups() {
+        org.junit.Assert.assertFalse(NotificationDisplayPolicy.isValidTarget(emptySet(), 25, 25))
+    }
+    @Test fun mismatchedOverlayContextIsBlocked() {
+        org.junit.Assert.assertFalse(NotificationDisplayPolicy.isValidTarget(setOf(25), 25, 0))
+    }
+    @Test fun monitorReconnectionReevaluatesTarget() {
+        org.junit.Assert.assertFalse(NotificationDisplayPolicy.isValidTarget(setOf(57), 25, 25))
+        org.junit.Assert.assertTrue(NotificationDisplayPolicy.isValidTarget(setOf(57), 57, 57))
+    }
+    @Test fun ambiguousMultipleDisplaysUseAttachedDockOnly() {
+        org.junit.Assert.assertTrue(NotificationDisplayPolicy.isValidTarget(setOf(5, 57), 57, 57))
+        org.junit.Assert.assertFalse(NotificationDisplayPolicy.isValidTarget(setOf(5, 57), null, 57))
+    }
+}
