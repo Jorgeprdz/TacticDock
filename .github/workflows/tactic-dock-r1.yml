@@ -1,4 +1,4 @@
-name: Tactic Dock R1.4 - Verified APK
+name: Tactic Dock R1.4.1 - Verified APK
 on:
   push:
     branches: [feat/tactic-dock-r1-floating]
@@ -22,14 +22,14 @@ jobs:
       - name: Create signed-by-checksum delivery
         run: |
           mkdir -p deliver
-          cp app/build/outputs/apk/debug/app-debug.apk deliver/TacticDock-R1.4.apk
-          cp scripts/TacticDock-R1.4-Install.sh deliver/TacticDock-R1.4-Install.sh
+          cp app/build/outputs/apk/debug/app-debug.apk deliver/TacticDock-R1.4.1.apk
+          cp scripts/TacticDock-R1.4.1-Install.sh deliver/TacticDock-R1.4.1-Install.sh
           cd deliver
-          sha256sum TacticDock-R1.4.apk > TacticDock-R1.4.apk.sha256
-          cat TacticDock-R1.4.apk.sha256
+          sha256sum TacticDock-R1.4.1.apk > TacticDock-R1.4.1.apk.sha256
+          cat TacticDock-R1.4.1.apk.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: TacticDock-R1.4-APK
+          name: TacticDock-R1.4.1-APK
           path: deliver/
           if-no-files-found: error
           retention-days: 14
