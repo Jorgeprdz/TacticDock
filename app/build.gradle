@@ -8,11 +8,11 @@ android {
     namespace "cu.axel.smartdock"
 	
     defaultConfig {
-        applicationId "cu.axel.smartdock"
+        applicationId "mx.tactic.dock"
         minSdk 30
         targetSdk 36
-        versionCode 1150
-        versionName "1.15.0"
+        versionCode 1
+        versionName "1.0.0-r1"
         signingConfig signingConfigs.debug
     }
 

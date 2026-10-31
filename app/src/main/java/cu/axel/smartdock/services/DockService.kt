@@ -264,7 +264,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         systemApp = AppUtils.isSystemApp(this, packageName)
         maxApps = sharedPreferences.getString("max_running_apps", "10")!!.toInt()
         maxAppsLandscape = sharedPreferences.getString("max_running_apps_landscape", "10")!!.toInt()
-        preferSecondaryDisplay = sharedPreferences.getBoolean("prefer_last_display", false)
+        preferSecondaryDisplay = true // Tactic Dock R1 prefers external Samsung DeX display
         createViews()
 
         //Listen for launcher messages
@@ -1441,26 +1441,19 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun updateDockHeight() {
-        dockHeight =
-            Utils.dpToPx(context, sharedPreferences.getString("dock_height", "56")!!.toInt())
-        if (isPinned) {
-            dockLayoutParams.height = dockHeight
-            windowManager.updateViewLayout(dock, dockLayoutParams)
-        }
+        // Fixed height for the functional R1 trial, before responsive sizing.
     }
 
     private fun placeRunningApps() {
-        val layoutParams = RelativeLayout.LayoutParams(
-            RelativeLayout.LayoutParams.MATCH_PARENT,
+        // Use a content-sized row adjacent to the launcher button.
+        // WindowManager centers the entire overlay on its display.
+        val lp = RelativeLayout.LayoutParams(
+            RelativeLayout.LayoutParams.WRAP_CONTENT,
             RelativeLayout.LayoutParams.WRAP_CONTENT
         )
-        if (sharedPreferences.getBoolean("center_running_apps", true)) {
-            layoutParams.addRule(RelativeLayout.CENTER_IN_PARENT)
-        } else {
-            layoutParams.addRule(RelativeLayout.END_OF, R.id.nav_panel)
-            layoutParams.addRule(RelativeLayout.START_OF, R.id.system_tray)
-        }
-        tasksGv.layoutParams = layoutParams
+        lp.addRule(RelativeLayout.END_OF, R.id.nav_panel)
+        lp.addRule(RelativeLayout.CENTER_VERTICAL)
+        tasksGv.layoutParams = lp
     }
 
     private fun loadPinnedApps() {
@@ -1535,11 +1528,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
     private fun updateDockShape() {
         dockLayout.setBackgroundResource(
-            if (sharedPreferences.getBoolean(
-                    "round_dock",
-                    false
-                )
-            ) R.drawable.round_rect else R.drawable.rect
+            R.drawable.round_rect
         )
         updateDockBackgroundColor()
     }
@@ -2031,8 +2020,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
     private fun updateDockBackgroundColor() {
         ColorUtils.applyMainColor(context, sharedPreferences, dockLayout)
-        if (sharedPreferences.getBoolean("override_dock_background_alpha", false))
-            applyDockAlpha()
+        // Semi-transparent surface; true backdrop blur is planned for a later release.
+        dockLayout.background.alpha = 228
     }
 
     private fun applyDockAlpha() {
@@ -2198,9 +2187,9 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
 
         dockHeight =
-            Utils.dpToPx(context, sharedPreferences.getString("dock_height", "56")!!.toInt())
+            Utils.dpToPx(context, 78) // Floating dock height for R1
         dockLayoutParams =
-            Utils.makeWindowParams(-1, dockHeight, context, preferSecondaryDisplay)
+            Utils.makeWindowParams(WindowManager.LayoutParams.WRAP_CONTENT, dockHeight, context, preferSecondaryDisplay)
         dockLayoutParams.screenOrientation =
             if (sharedPreferences.getBoolean("lock_landscape", false))
                 ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -2212,10 +2201,19 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         updateQuickSettings()
         updateDockShape()
         updateMenuIcon()
+        // R1: app-only dock; SystemUI and Samsung DeX remain untouched.
+        backBtn.visibility = View.GONE
+        homeBtn.visibility = View.GONE
+        recentBtn.visibility = View.GONE
+        assistBtn.visibility = View.GONE
+        appsBtn.visibility = View.VISIBLE
+        dock!!.findViewById<View>(R.id.system_tray).visibility = View.GONE
+        dockLayout.elevation = Utils.dpToPx(context, 12).toFloat()
         loadPinnedApps()
         placeRunningApps()
 
-        dockLayoutParams.gravity = Gravity.BOTTOM or Gravity.START
+        dockLayoutParams.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+        dockLayoutParams.y = Utils.dpToPx(context, 14)
         windowManager.addView(dock, dockLayoutParams)
 
         //Dock handle

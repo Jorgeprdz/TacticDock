@@ -1,7 +1,7 @@
 <resources>
 
     <!-- General -->
-    <string name="app_name">Smart Dock</string>
+    <string name="app_name">Tactic Dock</string>
     <string name="none">None</string>
     <string name="move">Move…</string>
     <string name="ok">OK</string>
@@ -29,7 +29,7 @@
     <string name="overlays_in_settings">Allow overlays on Settings</string>
     <string name="overlays_in_settings_desc">Used to keep the dock visible while the Settings app is open. This allows <b>any app</b> to display content on top of the Settings app not just the Dock. Must be enabled from Developer options</string>
     <string name="write_secure">Write secure settings</string>
-    <string name="write_secure_desc">Needed for advanced settings. This is a special permission that must be granted with root or adb by running: \npm grant cu.axel.smartdock android.permission.WRITE_SECURE_SETTINGS</string>
+    <string name="write_secure_desc">Needed for advanced settings. This is a special permission that must be granted with root or adb by running: \npm grant mx.tactic.dock android.permission.WRITE_SECURE_SETTINGS</string>
     <string name="manage">Manage…</string>
     <string name="grant">Grant</string>
     <string name="enable">Enable</string>

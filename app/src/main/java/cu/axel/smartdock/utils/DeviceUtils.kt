@@ -299,7 +299,7 @@ object DeviceUtils {
     }
 
     fun grantPermission(permission: String): Boolean {
-        val result = runAsRoot("pm grant cu.axel.smartdock $permission")
+        val result = runAsRoot("pm grant mx.tactic.dock $permission")
         return result.isEmpty()
     }
 
