@@ -62,13 +62,6 @@ class AppearancePreferences : PreferenceFragmentCompat() {
         })
         mainColorPref.isVisible =
             mainColorPref.sharedPreferences!!.getString("theme", "dark") == "custom"
-        findPreference<Preference>("tint_indicators")!!.isVisible =
-            AppUtils.isSystemApp(requireContext(), requireContext().packageName) || DeviceUtils.hasShizukuPermission()
-
-        findPreference<Preference>("dock_layout")!!.setOnPreferenceClickListener {
-            DockLayoutDialog(requireContext())
-            false
-        }
     }
 
     private fun showColorPickerDialog(context: Context) {
