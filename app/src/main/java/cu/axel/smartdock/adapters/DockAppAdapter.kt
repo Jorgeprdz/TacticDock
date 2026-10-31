@@ -59,9 +59,9 @@ class DockAppAdapter(
                     ColorUtils.manipulateColor(ColorUtils.getDrawableDominantColor(app.icon), 2f)
                 )
 
-            viewHolder.runningIndicator.alpha = if (app.tasks[0].id != -1) 1f else 0f
+            viewHolder.runningIndicator.alpha = if (app.tasks[0].id != -1) 0.86f else 0f
             viewHolder.runningIndicator.layoutParams.width =
-                Utils.dpToPx(context, if (app.packageName == AppUtils.currentApp) 16 else 8)
+                Utils.dpToPx(context, 3) // Tiny running-app indicator instead of a pill
 
             if (size > 1) {
                 viewHolder.taskCounter.text = size.toString()
@@ -111,8 +111,8 @@ class DockAppAdapter(
                 when (event.actionMasked) {
                     MotionEvent.ACTION_HOVER_ENTER -> {
                         itemView.animate().cancel()
-                        itemView.animate().scaleX(1.15f).scaleY(1.15f)
-                            .translationY(-Utils.dpToPx(itemView.context, 4).toFloat())
+                        itemView.animate().scaleX(1.10f).scaleY(1.10f)
+                            .translationY(-Utils.dpToPx(itemView.context, 2).toFloat())
                             .setDuration(150L).start()
                     }
                     MotionEvent.ACTION_HOVER_EXIT -> {

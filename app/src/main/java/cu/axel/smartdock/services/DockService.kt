@@ -1439,7 +1439,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 apps.add(DockApp(pinnedApp.name, pinnedApp.packageName, pinnedApp.icon))
             }
 
-        val gridSize = Utils.dpToPx(context, 52)
+        val gridSize = Utils.dpToPx(context, 44) // 36dp icon + 4dp margins each side
 
         //TODO: We can eliminate another for
         //TODO: Don't do anything if tasks has not changed
@@ -2123,7 +2123,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
 
         dockHeight =
-            Utils.dpToPx(context, 88) // Mac-style glass capsule
+            Utils.dpToPx(context, 74) // Compact macOS-style dock
         dockLayoutParams =
             Utils.makeWindowParams(WindowManager.LayoutParams.WRAP_CONTENT, dockHeight, context, preferSecondaryDisplay)
         dockLayoutParams.screenOrientation =
@@ -2144,15 +2144,15 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         assistBtn.visibility = View.GONE
         appsBtn.visibility = View.VISIBLE
         dock!!.findViewById<View>(R.id.system_tray).visibility = View.GONE
-        dockLayout.elevation = Utils.dpToPx(context, 12).toFloat()
+        dockLayout.elevation = Utils.dpToPx(context, 14).toFloat()
         loadPinnedApps()
         placeRunningApps()
 
         dockLayoutParams.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-        dockLayoutParams.y = Utils.dpToPx(context, 26) // clear of DeX taskbar reveal edge
+        dockLayoutParams.y = Utils.dpToPx(context, 28) // Clear of DeX taskbar reveal edge
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             dockLayoutParams.flags = dockLayoutParams.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-            dockLayoutParams.setBlurBehindRadius(Utils.dpToPx(context, 24))
+            dockLayoutParams.setBlurBehindRadius(Utils.dpToPx(context, 32))
         }
         windowManager.addView(dock, dockLayoutParams)
 

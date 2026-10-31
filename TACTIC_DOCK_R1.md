@@ -32,3 +32,12 @@ Retain upstream copyright and GPL-3.0 attribution and redistribution obligations
 - 48dp native app icons, a gentle 1.15x mouse hover, indicator dots.
 - Preserves Samsung DeX taskbar; use One UI's own auto-hide setting.
 - Device-side verification is still pending.
+
+## R1.3 — compact glass visual correction
+- Screenshot review: R1.2 was oversized, with excessive spacing and too much wallpaper texture.
+- Dock 88dp to 74dp and icons 48dp to 36dp. Cell width is now 44dp.
+- Translucent but more neutral frosted glass; 18dp radius and inset 14dp elevation.
+- Running-app indicators are tiny 3dp muted dots.
+- Hover 1.10x; recycler children do not clip icons.
+- DeX taskbar is untouched; persistent dock elevated 28dp above the taskbar reveal edge.
+- Real device visual review required; blur behind is still best-effort on One UI.
