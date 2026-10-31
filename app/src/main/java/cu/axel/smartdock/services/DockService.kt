@@ -120,6 +120,7 @@ import cu.axel.smartdock.utils.ColorUtils.getMainColors
 import cu.axel.smartdock.utils.DeepShortcutManager
 import cu.axel.smartdock.utils.DeviceUtils
 import cu.axel.smartdock.utils.DockDisplayResolver
+import cu.axel.smartdock.utils.DexModeGate
 import cu.axel.smartdock.utils.NotificationDisplayPolicy
 import cu.axel.smartdock.utils.IconPackUtils
 import cu.axel.smartdock.utils.OnSwipeListener
@@ -211,9 +212,15 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     private lateinit var displayManager: DisplayManager
     private lateinit var displayResolver: DockDisplayResolver
     private lateinit var displayListener: DisplayManager.DisplayListener
-    private val refreshDisplays = Runnable {
-        if (dock != null) restartUI()
+    private var dexReceiverRegistered = false
+    private var runtimeStarted = false
+    private var retryDexChecks = 0
+    private val dexReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            scheduleDisplayRefresh("dex_mode", -1)
+        }
     }
+    private val refreshDisplays = Runnable { reconcileDexSession() }
     private lateinit var keyguardManager: KeyguardManager
     private var iconPackUtils: IconPackUtils? = null
     private var notificationBridge: INotificationServiceBridge? = null
@@ -267,12 +274,64 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        if (!::displayListener.isInitialized) {
+            displayListener = object : DisplayManager.DisplayListener {
+                override fun onDisplayAdded(displayId: Int) = scheduleDisplayRefresh("added", displayId)
+                override fun onDisplayRemoved(displayId: Int) = scheduleDisplayRefresh("removed", displayId)
+                override fun onDisplayChanged(displayId: Int) = scheduleDisplayRefresh("changed", displayId)
+            }
+            displayManager.registerDisplayListener(displayListener, dockHandler)
+        }
+        if (!dexReceiverRegistered) {
+            val filter = IntentFilter().apply {
+                addAction("android.app.action.ENTER_KNOX_DESKTOP_MODE")
+                addAction("android.app.action.EXIT_KNOX_DESKTOP_MODE")
+                addAction("android.app.action.enter_knox_desktop_mode")
+                addAction("android.app.action.exit_knox_desktop_mode")
+            }
+            ContextCompat.registerReceiver(this, dexReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
+            dexReceiverRegistered = true
+        }
+        reconcileDexSession()
+    }
+
+    private fun reconcileDexSession() {
+        val external = DexModeGate.findActiveExternalDisplay(this, displayManager)
+        if (external == null) {
+            if (dock != null) {
+                Log.i("TacticDock", "DeX is inactive: removing all dock overlays")
+                removeAllViews()
+            }
+            // DeX can enter asynchronously AFTER DisplayManager announces HDMI.
+            // Retry briefly while the external display has not reached DeX mode.
+            if (displayManager.displays.any { it.isValid && it.displayId != Display.DEFAULT_DISPLAY }
+                && retryDexChecks < 6) {
+                retryDexChecks++
+                dockHandler.removeCallbacks(refreshDisplays)
+                dockHandler.postDelayed(refreshDisplays, 1200L)
+            }
+            return
+        }
+        retryDexChecks = 0
+        if (!runtimeStarted) {
+            runtimeStarted = true
+            startDexRuntime(external)
+        } else {
+            val attachedId = dock?.takeIf { it.isAttachedToWindow }?.display?.displayId
+            if (dock == null || attachedId != external.displayId) {
+                Log.i("TacticDock", "Reattaching dock to DeX display ${external.displayId} (old=$attachedId)")
+                restartUI(external)
+            }
+        }
+    }
+
+    private fun startDexRuntime(external: Display) {
         Utils.startupTime = System.currentTimeMillis()
         systemApp = AppUtils.isSystemApp(this, packageName)
         maxApps = sharedPreferences.getString("max_running_apps", "10")!!.toInt()
         maxAppsLandscape = sharedPreferences.getString("max_running_apps_landscape", "10")!!.toInt()
-        preferSecondaryDisplay = true // Tactic Dock R1 prefers external Samsung DeX display
-        createViews()
+        preferSecondaryDisplay = true // Never render on the phone.
+        createViews(external)
 
         //Listen for launcher messages
         ContextCompat.registerReceiver(this, object : BroadcastReceiver() {
@@ -338,14 +397,6 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 updateRunningTasks()
             }
         }, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
-
-        displayListener = object : DisplayManager.DisplayListener {
-            override fun onDisplayAdded(displayId: Int) = scheduleDisplayRefresh("added", displayId)
-            override fun onDisplayRemoved(displayId: Int) = scheduleDisplayRefresh("removed", displayId)
-            override fun onDisplayChanged(displayId: Int) = scheduleDisplayRefresh("changed", displayId)
-        }
-
-        displayManager.registerDisplayListener(displayListener, null)
 
         batteryReceiver = BatteryStatsReceiver(
             context,
@@ -439,9 +490,15 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun scheduleDisplayRefresh(event: String, displayId: Int) {
-        Log.i("TacticDock", "Display $event id=$displayId: refreshing overlay display context")
+        Log.i("TacticDock", "DeX/display $event id=$displayId: reevaluating dock session")
+        retryDexChecks = 0
+        // Disconnect must remove overlays immediately, not after debouncing.
+        if (event == "removed") {
+            val active = DexModeGate.findActiveExternalDisplay(this, displayManager)
+            if (active == null && dock != null) removeAllViews()
+        }
         dockHandler.removeCallbacks(refreshDisplays)
-        dockHandler.postDelayed(refreshDisplays, 250L)
+        dockHandler.postDelayed(refreshDisplays, 400L)
     }
 
     private fun resolveDockDisplay(requested: Int? = null): Int? {
@@ -580,7 +637,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        if (!isPinned)
+        if (dock == null || !isPinned)
             return
 
         if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
@@ -631,6 +688,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
     //Handle keyboard shortcuts
     override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (dock == null || !DexModeGate.isDexExternalActive(this, displayManager)) return false
         if (event.action == KeyEvent.ACTION_UP) {
             if (event.isAltPressed) {
                 if (event.keyCode == KeyEvent.KEYCODE_L && sharedPreferences.getBoolean(
@@ -859,6 +917,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     fun pinDock() {
+        if (dock == null || !DexModeGate.isDexExternalActive(this, displayManager)) return
         isPinned = true
         pinBtn.setImageResource(R.drawable.ic_pin)
         if (dockLayout.isGone)
@@ -1431,8 +1490,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     override fun onSharedPreferenceChanged(p1: SharedPreferences, preference: String?) {
-        if (preference == null)
-            return
+        if (preference == null || dock == null) return
         if (preference.startsWith("theme"))
             applyTheme()
         else if (preference == "menu_icon_uri")
@@ -1484,9 +1542,9 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         else if (preference == "override_dock_background_alpha")
             updateDockBackgroundColor()
         else if (preference == "prefer_last_display") {
-            preferSecondaryDisplay = sharedPreferences.getBoolean("prefer_last_display", false)
-            if (DeviceUtils.getDisplays(this).size > 1)
-                restartUI()
+            // An old preference must never re-enable phone overlays.
+            preferSecondaryDisplay = true
+            scheduleDisplayRefresh("preference", -1)
         }
     }
 
@@ -1587,6 +1645,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        scheduleDisplayRefresh("configuration", -1)
+        if (dock == null) return
         orientation = newConfig.orientation
         orientationValue =
             if (orientation == Configuration.ORIENTATION_PORTRAIT) "" else "_landscape"
@@ -2092,9 +2152,12 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         dockHandler.removeCallbacks(refreshDisplays)
         if (::displayListener.isInitialized && ::displayManager.isInitialized)
             displayManager.unregisterDisplayListener(displayListener)
-        connectivityManager.unregisterNetworkCallback(wifiNetworkCallback)
-        removeAllViews()
-        unbindService(notificationServiceConnection)
+        if (dexReceiverRegistered) unregisterReceiver(dexReceiver)
+        if (runtimeStarted) {
+            connectivityManager.unregisterNetworkCallback(wifiNetworkCallback)
+            removeAllViews()
+            unbindService(notificationServiceConnection)
+        }
         super.onDestroy()
     }
 
@@ -2109,8 +2172,11 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
     }
 
-    private fun createViews() {
-        context = DeviceUtils.getDisplayContext(this, preferSecondaryDisplay)
+    private fun createViews(external: Display) {
+        // Explicit display context only. No fallback to the phone even during
+        // DeX shutdown/reconnection; the caller must verify a live DeX display.
+        require(external.isValid && external.displayId != Display.DEFAULT_DISPLAY)
+        context = createDisplayContext(external)
         windowManager = context.getSystemService(WINDOW_SERVICE) as WindowManager
         orientation = context.resources.configuration.orientation
         orientationValue =
@@ -2126,6 +2192,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun dockNotificationDisplayId(): Int? {
+        if (!DexModeGate.isDexExternalActive(this, displayManager)) return null
         val rendered = dock?.takeIf { it.isAttachedToWindow }?.display?.displayId
         val contextual = try { context.display?.displayId }
             catch (_: UnsupportedOperationException) { null }
@@ -2447,9 +2514,24 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
     }
 
-    private fun restartUI() {
+    private fun restartUI(external: Display) {
         removeAllViews()
-        createViews()
+        if (!DexModeGate.isDexExternalActive(this, displayManager)) return
+        createViews(external)
+        // The battery receiver retains a UI TextView from the previous display.
+        // Rebind it when the display is recreated to prevent stale updates.
+        if (::batteryReceiver.isInitialized) {
+            try { unregisterReceiver(batteryReceiver) }
+            catch (_: IllegalArgumentException) {}
+        }
+        batteryReceiver = BatteryStatsReceiver(
+            context, batteryBtn,
+            sharedPreferences.getBoolean("show_battery_level$orientationValue", false)
+        )
+        ContextCompat.registerReceiver(
+            this, batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         updateBatteryBtn()
         pinDock()
     }
@@ -2517,7 +2599,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         notificationLayout?.dispose()
         val windows = listOfNotNull<View>(
             notificationLayout?.notificationLayout, dock, dockHandle, appMenu,
-            topRightCorner, bottomRightCorner, notificationLayout?.notificationLayout
+            topRightCorner, bottomRightCorner, powerMenu, quickSettingsPanel
         ).distinct()
         windows.forEach { view ->
             try {
@@ -2533,7 +2615,13 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         topRightCorner = null
         bottomRightCorner = null
         notificationLayout = null
-        // Notifications are display-scoped and never reparented to the phone.
+        powerMenu = null
+        quickSettingsPanel = null
+        appMenuVisible = false
+        powerMenuVisible = false
+        quickSettingsPanelVisible = false
+        isPinned = false
+        // No stale DeX overlay is ever reparented to the phone.
     }
 
     inner class HotCornersHoverListener(val key: String) : View.OnHoverListener {
@@ -2641,6 +2729,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun updateNotificationCount() {
+        if (dock == null) return
         val count = notificationBridge?.notificationCount ?: 0
         if (count > 0) {
             notificationBtn.setBackgroundResource(R.drawable.circle)
