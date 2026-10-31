@@ -12,7 +12,7 @@ import android.util.Log
  * Performs operations related to deep shortcuts, such as querying for them, pinning them, etc.
  */
 object DeepShortcutManager {
-    fun startShortcut(shortcutInfo: ShortcutInfo, context: Context, options: Bundle): Boolean {
+    fun startShortcut(shortcutInfo: ShortcutInfo, context: Context, options: Bundle? = null): Boolean {
         val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
         return try {
             launcherApps.startShortcut(

@@ -464,9 +464,21 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
     }
 
+    private fun observedTaskDisplay(info: ActivityManager.RunningTaskInfo?): Int? {
+        if (info == null) return null
+        // TaskInfo.displayId is absent from public SDK 36; reflection may be
+        // blocked by hidden-API enforcement. Treat unavailable as UNKNOWN.
+        return try {
+            info.javaClass.getField("displayId").getInt(info)
+        } catch (error: ReflectiveOperationException) {
+            Log.w("TacticDock", "Task display is not observable", error)
+            null
+        }
+    }
+
     private fun focusTaskOnDock(taskId: Int, appPackage: String) {
         val target = resolveDockDisplay() ?: return
-        val actual = getTaskInfo(taskId)?.displayId
+        val actual = observedTaskDisplay(getTaskInfo(taskId))
         Log.i("TacticDock", "Focus task=$taskId package=$appPackage requested=$target actual=$actual")
         if (actual != target) {
             Log.w("TacticDock", "Cannot migrate an existing task using public APIs")
@@ -495,8 +507,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             if (info == null) {
                 Log.i("TacticDock", "Unverified destination for $appPackage: task access unavailable")
             } else {
-                Log.i("TacticDock", "Launched $appPackage requested=$target actual=${info.displayId}")
-                if (info.displayId != target)
+                Log.i("TacticDock", "Launched $appPackage requested=$target actual=${observedTaskDisplay(info)}")
+                if (observedTaskDisplay(info) != target)
                     Toast.makeText(this, "Android abrió la app en otra pantalla; revisa la tarea existente", Toast.LENGTH_LONG).show()
             }
         }, 950L)
@@ -911,8 +923,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 }
             } catch (_: Exception) { null }
         } else null
-        if (existing != null && existing.displayId != resolved) {
-            Log.w("TacticDock", "Existing app on display ${existing.displayId}; blocked target=$resolved")
+        if (existing != null && observedTaskDisplay(existing) != resolved) {
+            Log.w("TacticDock", "Existing app on display ${observedTaskDisplay(existing)}; blocked target=$resolved")
             Toast.makeText(this, "Esta app ya está abierta en otra pantalla. Ciérrala allí antes de abrirla en DeX.", Toast.LENGTH_LONG).show()
             return
         }
