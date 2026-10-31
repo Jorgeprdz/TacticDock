@@ -1,4 +1,4 @@
-name: Tactic Dock R1 - APK
+name: Tactic Dock R1.4 - Verified APK
 on:
   push:
     branches: [feat/tactic-dock-r1-floating]
@@ -15,14 +15,21 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-      - name: Unit tests and debug APK
+      - name: Tests and APK
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon testDebugUnitTest assembleDebug
-      - name: SHA256
-        run: sha256sum app/build/outputs/apk/debug/*.apk
+      - name: Create signed-by-checksum delivery
+        run: |
+          mkdir -p deliver
+          cp app/build/outputs/apk/debug/app-debug.apk deliver/TacticDock-R1.4.apk
+          cp scripts/TacticDock-R1.4-Install.sh deliver/TacticDock-R1.4-Install.sh
+          cd deliver
+          sha256sum TacticDock-R1.4.apk > TacticDock-R1.4.apk.sha256
+          cat TacticDock-R1.4.apk.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: TacticDock-R1-debug-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: TacticDock-R1.4-APK
+          path: deliver/
           if-no-files-found: error
+          retention-days: 14

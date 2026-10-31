@@ -46,10 +46,10 @@ class DockAppAdapter(
     }
 
     override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
-        viewHolder.itemView.animate().cancel()
-        viewHolder.itemView.scaleX = 1f
-        viewHolder.itemView.scaleY = 1f
-        viewHolder.itemView.translationY = 0f
+        viewHolder.iconIv.animate().cancel()
+        viewHolder.iconIv.scaleX = 1f
+        viewHolder.iconIv.scaleY = 1f
+        viewHolder.iconIv.translationY = 0f
         val app = apps[position]
         val size = app.tasks.size
         if (size > 0) {
@@ -110,15 +110,15 @@ class DockAppAdapter(
             itemView.setOnHoverListener { _, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_HOVER_ENTER -> {
-                        itemView.animate().cancel()
-                        itemView.animate().scaleX(1.10f).scaleY(1.10f)
+                        iconIv.animate().cancel()
+                        iconIv.animate().scaleX(1.12f).scaleY(1.12f)
                             .translationY(-Utils.dpToPx(itemView.context, 2).toFloat())
-                            .setDuration(150L).start()
+                            .setDuration(155L).start()
                     }
                     MotionEvent.ACTION_HOVER_EXIT -> {
-                        itemView.animate().cancel()
-                        itemView.animate().scaleX(1f).scaleY(1f)
-                            .translationY(0f).setDuration(160L).start()
+                        iconIv.animate().cancel()
+                        iconIv.animate().scaleX(1f).scaleY(1f)
+                            .translationY(0f).setDuration(165L).start()
                     }
                 }
                 false

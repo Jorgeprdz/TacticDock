@@ -1531,7 +1531,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 apps.add(DockApp(pinnedApp.name, pinnedApp.packageName, pinnedApp.icon))
             }
 
-        val gridSize = Utils.dpToPx(context, 44) // 36dp icon + 4dp margins each side
+        val gridSize = Utils.dpToPx(context, 48) // 40dp icon and balanced padding
 
         //TODO: We can eliminate another for
         //TODO: Don't do anything if tasks has not changed
@@ -2216,7 +2216,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
 
         dockHeight =
-            Utils.dpToPx(context, 74) // Compact macOS-style dock
+            Utils.dpToPx(context, 80) // R1.4 refined macOS-style proportions
         dockLayoutParams =
             Utils.makeWindowParams(WindowManager.LayoutParams.WRAP_CONTENT, dockHeight, context, preferSecondaryDisplay)
         dockLayoutParams.screenOrientation =
