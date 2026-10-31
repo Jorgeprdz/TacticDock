@@ -336,4 +336,41 @@
     <string name="donate_message">If you find this project useful or it has helped you in any way, consider showing your appreciation and supporting its ongoing development.</string>
     <string name="dock_elements_portrait">Dock elements(portrait)</string>
     <string name="dock_elements_landscape">Dock elements(landscape)</string>
+
+    <!-- Tactic Dock: curated DeX-only configuration -->
+    <string name="tactic_settings_personalization">PERSONALIZACIÓN</string>
+    <string name="tactic_settings_support">SOPORTE</string>
+    <string name="tactic_settings_dock">Dock</string>
+    <string name="tactic_settings_appearance">Apariencia</string>
+    <string name="tactic_settings_apps">Aplicaciones</string>
+    <string name="tactic_settings_notifications">Notificaciones</string>
+    <string name="tactic_settings_diagnostics">Diagnóstico y respaldo</string>
+    <string name="tactic_settings_about">Acerca de</string>
+    <string name="tactic_max_apps">Aplicaciones visibles</string>
+    <string name="tactic_max_apps_summary">Límite de iconos de aplicaciones en el Dock</string>
+    <string name="tactic_icon_pack">Paquete de iconos</string>
+    <string name="tactic_theme">Tema de la interfaz</string>
+    <string name="tactic_icon_shape">Forma de los iconos</string>
+    <string name="tactic_customize_opacity">Personalizar transparencia</string>
+    <string name="tactic_glass_opacity">Opacidad del Dock</string>
+    <string name="tactic_launcher_icon">Icono del lanzador</string>
+    <string name="tactic_launcher_columns">Columnas de aplicaciones</string>
+    <string name="tactic_launch_mode">Apertura de aplicaciones</string>
+    <string name="tactic_app_visibility">VISIBILIDAD</string>
+    <string name="tactic_enable_hiding">Ocultar aplicaciones del lanzador</string>
+    <string name="tactic_hidden_apps">Seleccionar aplicaciones ocultas</string>
+    <string name="tactic_external_popups">Avisos flotantes en DeX</string>
+    <string name="tactic_external_popups_summary">Solo se muestran en el monitor externo; el teléfono conserva Android</string>
+    <string name="tactic_popup_duration">Duración de los avisos (segundos)</string>
+    <string name="tactic_popup_ignored_apps">Silenciar avisos de aplicaciones</string>
+    <string name="tactic_notifications_panel">Panel de notificaciones</string>
+    <string name="tactic_notification_access">Gestionar acceso a notificaciones</string>
+    <string name="tactic_display_info">Información de pantallas</string>
+    <string name="tactic_display_info_summary">Diagnosticar los ID dinámicos del monitor DeX</string>
+    <string name="tactic_export_config">Exportar configuración</string>
+    <string name="tactic_import_config">Importar configuración</string>
+    <string name="tactic_about_summary">Dock de escritorio exclusivo para Samsung DeX</string>
+    <string name="tactic_project">Proyecto Tactic Dock</string>
+    <string name="tactic_original_credits">Proyecto original SmartDock</string>
+    <string name="tactic_original_summary">Código base y atribución de licencia</string>
 </resources>

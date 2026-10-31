@@ -1,49 +1,33 @@
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" 
-	xmlns:app="http://schemas.android.com/apk/res-auto">
-
-    <cu.axel.smartdock.preferences.PreferenceHeader
-		android:icon="@drawable/ic_appearance"
-		android:title="@string/appearance" 
-		app:fragment="cu.axel.smartdock.fragments.AppearancePreferences" />
-    <cu.axel.smartdock.preferences.PreferenceHeader
-		android:icon="@drawable/ic_apps_menu" 
-		app:fragment="cu.axel.smartdock.fragments.AppMenuPreferences" 
-		android:title="@string/app_menu"  />
-	<cu.axel.smartdock.preferences.PreferenceHeader
-        android:icon="@drawable/ic_dock"
-        android:fragment="cu.axel.smartdock.fragments.DockPreferences"
-        android:title="@string/dock" />
-	<cu.axel.smartdock.preferences.PreferenceHeader
-        android:icon="@drawable/ic_desktop"
-        android:fragment="cu.axel.smartdock.fragments.DesktopPreferences"
-        android:title="@string/desktop" />
-    <cu.axel.smartdock.preferences.PreferenceHeader
-        android:icon="@drawable/ic_star"
-        android:fragment="cu.axel.smartdock.fragments.DefaultAppsPreferences"
-        android:title="@string/default_apps" />
-    <cu.axel.smartdock.preferences.PreferenceHeader
-        android:icon="@drawable/ic_keyboard"
-        android:fragment="cu.axel.smartdock.fragments.KeyboardPreferences"
-        android:title="@string/keyboard" />
-	<cu.axel.smartdock.preferences.PreferenceHeader
-        android:icon="@drawable/ic_corners"
-        android:fragment="cu.axel.smartdock.fragments.HotCornersPreferences"
-        android:title="@string/hot_corners" />
-	<cu.axel.smartdock.preferences.PreferenceHeader
-        android:icon="@drawable/ic_notifications"
-        android:fragment="cu.axel.smartdock.fragments.NotificationPreferences"
-        android:title="@string/notifications" />
-    <cu.axel.smartdock.preferences.PreferenceHeader
-        android:icon="@drawable/ic_sounds"
-        android:fragment="cu.axel.smartdock.fragments.SoundsPreferences"
-        android:title="@string/sounds" />
-    <cu.axel.smartdock.preferences.PreferenceHeader
-        android:icon="@drawable/ic_advanced"
-        android:fragment="cu.axel.smartdock.fragments.AdvancedPreferences"
-        android:title="@string/advanced" />
-    <cu.axel.smartdock.preferences.PreferenceHeader
-        android:icon="@drawable/ic_info"
-        android:fragment="cu.axel.smartdock.fragments.HelpAboutPreferences"
-        android:title="@string/help_and_about" />
-
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <!-- Only controls used by the DeX-only Tactic Dock experience. -->
+    <PreferenceCategory android:title="@string/tactic_settings_personalization">
+        <cu.axel.smartdock.preferences.PreferenceHeader
+            android:icon="@drawable/ic_dock"
+            android:title="@string/tactic_settings_dock"
+            app:fragment="cu.axel.smartdock.fragments.DockPreferences" />
+        <cu.axel.smartdock.preferences.PreferenceHeader
+            android:icon="@drawable/ic_appearance"
+            android:title="@string/tactic_settings_appearance"
+            app:fragment="cu.axel.smartdock.fragments.AppearancePreferences" />
+        <cu.axel.smartdock.preferences.PreferenceHeader
+            android:icon="@drawable/ic_apps_menu"
+            android:title="@string/tactic_settings_apps"
+            app:fragment="cu.axel.smartdock.fragments.AppMenuPreferences" />
+        <cu.axel.smartdock.preferences.PreferenceHeader
+            android:icon="@drawable/ic_notifications"
+            android:title="@string/tactic_settings_notifications"
+            app:fragment="cu.axel.smartdock.fragments.NotificationPreferences" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/tactic_settings_support">
+        <cu.axel.smartdock.preferences.PreferenceHeader
+            android:icon="@drawable/ic_advanced"
+            android:title="@string/tactic_settings_diagnostics"
+            app:fragment="cu.axel.smartdock.fragments.AdvancedPreferences" />
+        <cu.axel.smartdock.preferences.PreferenceHeader
+            android:icon="@drawable/ic_info"
+            android:title="@string/tactic_settings_about"
+            app:fragment="cu.axel.smartdock.fragments.HelpAboutPreferences" />
+    </PreferenceCategory>
 </PreferenceScreen>

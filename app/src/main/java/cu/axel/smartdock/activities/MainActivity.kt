@@ -1,7 +1,6 @@
 package cu.axel.smartdock.activities
 
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.os.Handler
@@ -14,14 +13,10 @@ import android.widget.Toast
 import android.widget.ViewSwitcher
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.edit
 import androidx.core.net.toUri
-import androidx.preference.PreferenceManager
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import cu.axel.smartdock.R
-import cu.axel.smartdock.dialogs.DockLayoutDialog
-import cu.axel.smartdock.dialogs.DonateDialog
 import cu.axel.smartdock.dialogs.NotificationPermissionDialog
 import cu.axel.smartdock.fragments.PreferencesFragment
 import cu.axel.smartdock.services.NotificationService
@@ -32,7 +27,6 @@ import kotlin.reflect.KFunction0
 
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var sharedPreferences: SharedPreferences
     private lateinit var permissionsDialog: AlertDialog
     private lateinit var overlayBtn: MaterialButton
     private lateinit var storageBtn: MaterialButton
@@ -49,13 +43,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
-        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this)
-        var launchCount = sharedPreferences.getInt("launch_count", 0)
-        if (launchCount != -1 && launchCount < 5)
-            sharedPreferences.edit { putInt("launch_count", ++launchCount) }
-        if (launchCount == 5) {
-            DonateDialog(this)
-        }
         supportFragmentManager.beginTransaction()
             .replace(R.id.settings_container, PreferencesFragment())
             .commit()
@@ -67,8 +54,6 @@ class MainActivity : AppCompatActivity() {
             )
         )
             showPermissionsDialog()
-        if (sharedPreferences.getInt("dock_layout", -1) == -1)
-            DockLayoutDialog(this)
 
 
 

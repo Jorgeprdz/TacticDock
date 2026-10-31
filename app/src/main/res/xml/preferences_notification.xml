@@ -1,48 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <PreferenceCategory android:title="@string/notification_popups">
+    <PreferenceCategory android:title="@string/tactic_settings_notifications">
         <SwitchPreferenceCompat
-            android:defaultValue="true"
             android:key="show_notifications"
-            android:title="@string/notification_popups" />
-
+            android:defaultValue="true"
+            android:title="@string/tactic_external_popups"
+            android:summary="@string/tactic_external_popups_summary" />
         <EditTextPreference
-            android:defaultValue="5"
-            android:dependency="show_notifications"
-            android:hint="5"
             android:key="notification_display_time"
-            android:title="@string/notification_timeout_title" />
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
             android:dependency="show_notifications"
-            android:key="show_ongoing"
-            android:title="@string/show_ongoing_title" />
-
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:dependency="show_notifications"
-            android:key="silence_current"
-            android:title="@string/silence_current_title" />
-
+            android:defaultValue="5"
+            android:title="@string/tactic_popup_duration" />
         <cu.axel.smartdock.preferences.AppChooserMultiplePreference
-            android:dependency="show_notifications"
             android:key="ignored_notifications_popups"
-            android:title="@string/silenced_notifications_title" />
-    </PreferenceCategory>
-    <PreferenceCategory android:title="@string/enable_notif_panel_title">
+            android:dependency="show_notifications"
+            android:title="@string/tactic_popup_ignored_apps" />
         <SwitchPreferenceCompat
-            android:defaultValue="true"
             android:key="enable_notif_panel"
-            android:title="@string/enable_notif_panel_title" />
-        <cu.axel.smartdock.preferences.AppChooserMultiplePreference
-            android:key="ignored_notifications_panel"
-            android:title="@string/hidden_notifications" />
+            android:defaultValue="true"
+            android:title="@string/tactic_notifications_panel" />
+        <Preference android:title="@string/tactic_notification_access">
+            <intent android:action="android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS" />
+        </Preference>
     </PreferenceCategory>
-    <Preference android:title="@string/manage_service">
-        <intent android:action="android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS" />
-    </Preference>
-
-    <Preference
-        android:icon="@drawable/ic_info"
-        android:title="@string/long_press_a_notification_to_a" />
-
 </PreferenceScreen>
